@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#070B14" />
+    <script>
+      (function () {
+        try {
+          var keys = ['planize-storage', 'finance-app-storage']
+          var raw = null
+          for (var ki = 0; ki < keys.length; ki++) {
+            raw = localStorage.getItem(keys[ki])
+            if (raw) break
+          }
+          if (!raw) return
+          var data = JSON.parse(raw)
+          var theme = data.state && data.state.ui && data.state.ui.theme
+          document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark'
+          document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark'
+          document.documentElement.style.backgroundColor = theme === 'light' ? '#ebf0f8' : '#070b14'
+          if (theme === 'light') {
+            document.documentElement.classList.add('light')
+            var meta = document.querySelector('meta[name="theme-color"]')
+            if (meta) meta.setAttribute('content', '#EBF0F8')
+          } else {
+            document.documentElement.classList.remove('light')
+          }
+        } catch (e) {}
+      })()
+    </script>
+
+    <!-- PWA iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Planize" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+
+    <!-- Meta -->
+    <meta name="description" content="Planize — planejamento e controle de finanças pessoais e do lar" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <title>Planize</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

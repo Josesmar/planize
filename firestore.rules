@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /spaceDirectory/{keyId} {
+      allow read: if request.auth != null && keyId.size() >= 4;
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && !exists(/databases/$(database)/documents/spaceDirectory/$(keyId))
+        && request.resource.data.ownerEmail == request.auth.token.email.lower()
+        && request.resource.data.workspaceId is string
+        && request.resource.data.workspaceId.size() >= 8
+        && request.resource.data.accessKeyId == keyId;
+      allow update, delete: if false;
+    }
+
+    match /joinRequests/{rid} {
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && request.resource.data.guestEmail == request.auth.token.email.lower()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.accessKeyId is string
+        && exists(/databases/$(database)/documents/spaceDirectory/$(request.resource.data.accessKeyId));
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (
+          request.auth.token.email.lower() == resource.data.guestEmail
+          || request.auth.token.email.lower() == resource.data.ownerEmail
+        );
+      allow update: if request.auth != null
+        && request.auth.token.email.lower() == resource.data.ownerEmail
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt']);
+      allow delete: if false;
+    }
+
+    // Leitura do workspace por quem já é membro, ou por qualquer utilizador autenticado
+    // quando o documento está ligado a um código em spaceDirectory (necessário para novos
+    // membros poderem ler antes de entrarem em allowedEmails).
+    function workspaceLinkedToDirectory() {
+      return resource.data.accessKeyId is string
+        && exists(/databases/$(database)/documents/spaceDirectory/$(resource.data.accessKeyId))
+        && get(/databases/$(database)/documents/spaceDirectory/$(resource.data.accessKeyId)).data.workspaceId == wsId;
+    }
+
+    match /workspaces/{wsId} {
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && (
+          request.auth.token.email.lower() in resource.data.allowedEmails
+          || workspaceLinkedToDirectory()
+          // Workspaces criados antes de accessKeyId: qualquer utilizador autenticado pode ler
+          // (o id do workspace é opaco; quem não tem código não descobre o documento).
+          || !('accessKeyId' in resource.data)
+        );
+
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && request.resource.data.ownerEmail == request.auth.token.email.lower()
+        && request.auth.token.email.lower() in request.resource.data.allowedEmails
+        && wsId.size() >= 8
+        && request.resource.data.accessKeyId is string
+        && request.resource.data.accessKeyId.size() >= 4;
+
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && (
+          (
+            // Membro atual: pode sincronizar conteúdo, mas não mudar ACL.
+            request.auth.token.email.lower() in resource.data.allowedEmails
+            && request.resource.data.ownerEmail == resource.data.ownerEmail
+            && request.resource.data.allowedEmails == resource.data.allowedEmails
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['months', 'currentMonthId', 'ui', 'templates', 'revision', 'updatedAt'])
+          )
+          ||
+          (
+            // Novo membro: pode adicionar APENAS o próprio email à ACL.
+            !(request.auth.token.email.lower() in resource.data.allowedEmails)
+            && request.resource.data.ownerEmail == resource.data.ownerEmail
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['allowedEmails', 'updatedAt'])
+            && request.resource.data.allowedEmails.size() == resource.data.allowedEmails.size() + 1
+            && request.auth.token.email.lower() in request.resource.data.allowedEmails
+            && request.resource.data.allowedEmails.hasAll(resource.data.allowedEmails)
+          )
+        );
+
+      allow delete: if false;
+    }
+  }
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#070B14"/>
+  <rect x="40" y="40" width="432" height="432" rx="72" fill="#0D1526"/>
+  <!-- Chart bars -->
+  <rect x="100" y="290" width="64" height="120" rx="16" fill="#6366F1" opacity="0.7"/>
+  <rect x="188" y="210" width="64" height="200" rx="16" fill="#6366F1" opacity="0.85"/>
+  <rect x="276" y="160" width="64" height="250" rx="16" fill="#6366F1"/>
+  <rect x="364" y="240" width="64" height="170" rx="16" fill="#22C55E"/>
+  <!-- Currency symbol -->
+  <text x="256" y="140" font-family="Inter, sans-serif" font-size="72" font-weight="800" fill="#F1F5F9" text-anchor="middle">R$</text>
+</svg>

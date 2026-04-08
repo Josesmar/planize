@@ -1,4 +1,5 @@
 import type { User } from 'firebase/auth'
+import { FirebaseError } from 'firebase/app'
 import {
   doc,
   getFirestore,
@@ -69,6 +70,12 @@ function serializeComparable(state: AppState): string {
 /** Firestore não aceita `undefined` em mapas; remove com round-trip JSON. */
 function stripForFirestore<T extends Record<string, unknown>>(obj: T): T {
   return JSON.parse(JSON.stringify(obj)) as T
+}
+
+/** Conflito de transação: o documento mudou entre o read e o commit (outro separador, outro push, etc.). */
+function isFirestoreTransactionVersionConflict(e: unknown): boolean {
+  if (!(e instanceof FirebaseError) || e.code !== 'failed-precondition') return false
+  return /stored version|required base version|base version/i.test(e.message)
 }
 
 function parseRemoteWorkspace(
@@ -149,23 +156,41 @@ async function pushWorkspaceDoc(ref: DocumentReference, store: AppStore) {
   pushInFlight = true
   try {
     const db = ref.firestore
-    await runTransaction(db, async tx => {
-      const snap = await tx.get(ref)
-      const prevRev = snap.exists() ? Number((snap.data() as { revision?: unknown }).revision ?? 0) : 0
-      const slice = pickSlice(store.getState())
-      const payload = stripForFirestore({
-        ...slice,
-        ownerEmail: meta.ownerEmail,
-        allowedEmails: meta.allowedEmails,
-        revision: prevRev + 1,
-      } as Record<string, unknown>)
-      tx.set(ref, {
-        ...payload,
-        updatedAt: serverTimestamp(),
-      })
-    })
-    lastComparableJson = serializeComparable(store.getState())
-    setStatus({ kind: 'synced', at: Date.now() })
+    const maxOuterAttempts = 4
+    let lastError: unknown
+    for (let outer = 0; outer < maxOuterAttempts; outer++) {
+      try {
+        await runTransaction(
+          db,
+          async tx => {
+            const snap = await tx.get(ref)
+            const prevRev = snap.exists() ? Number((snap.data() as { revision?: unknown }).revision ?? 0) : 0
+            const slice = pickSlice(store.getState())
+            const payload = stripForFirestore({
+              ...slice,
+              ownerEmail: meta.ownerEmail,
+              allowedEmails: meta.allowedEmails,
+              revision: prevRev + 1,
+            } as Record<string, unknown>)
+            tx.set(ref, {
+              ...payload,
+              updatedAt: serverTimestamp(),
+            })
+          },
+          { maxAttempts: 15 }
+        )
+        lastComparableJson = serializeComparable(store.getState())
+        setStatus({ kind: 'synced', at: Date.now() })
+        return
+      } catch (e) {
+        lastError = e
+        if (!isFirestoreTransactionVersionConflict(e) || outer === maxOuterAttempts - 1) break
+        await new Promise(r => setTimeout(r, 200 + outer * 200 + Math.random() * 400))
+      }
+    }
+    const message =
+      lastError instanceof Error ? lastError.message : 'Erro ao sincronizar com a nuvem.'
+    setStatus({ kind: 'error', message })
   } finally {
     pushInFlight = false
   }

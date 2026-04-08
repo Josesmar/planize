@@ -68,6 +68,8 @@ export interface UiPreferences {
   incomeSlotCount: number
   /** Após o primeiro acesso (landing), não exibir wizard de configuração. */
   onboardingDone: boolean
+  /** Nome para saudação após o login (persiste com os dados da app). */
+  greetingName: string
   fontSize: FontSize
   theme: AppTheme
 }
@@ -83,6 +85,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   personLabels: ['Pessoa 1', 'Pessoa 2'],
   incomeSlotCount: 2,
   onboardingDone: false,
+  greetingName: '',
   fontSize: 'md',
   theme: 'dark',
 }

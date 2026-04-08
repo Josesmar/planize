@@ -32,11 +32,15 @@ export function coerceUiPreferences(raw: Record<string, unknown>): UiPreferences
   const onboardingDone =
     typeof u.onboardingDone === 'boolean' ? u.onboardingDone : true
 
+  const greetingName =
+    typeof u.greetingName === 'string' ? u.greetingName.trim().slice(0, 80) : ''
+
   return {
     workspaceTitle: typeof u.workspaceTitle === 'string' ? u.workspaceTitle : '',
     personLabels,
     incomeSlotCount,
     onboardingDone,
+    greetingName,
     fontSize,
     theme,
   }

@@ -68,7 +68,7 @@ body,
 /* Fundo da viewport sem depender só do Tailwind (evita faixas escuras no PWA/Safari). */
 html {
   background-color: #070b14;
-  scroll-padding-bottom: max(5.5rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)));
+  scroll-padding-bottom: max(7.25rem, calc(5.75rem + env(safe-area-inset-bottom, 0px)));
 }
 
 html.light,

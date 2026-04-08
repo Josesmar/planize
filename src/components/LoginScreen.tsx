@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus, Wallet } from 'lucide-react'
 import { useStore } from '../store'
 import { useFirebaseAuth } from '../auth/FirebaseAuthProvider'
+import {
+  PLANIZE_LAST_CONTROL_CODE_KEY,
+  PLANIZE_LAST_LOGIN_EMAIL_KEY,
+  PLANIZE_POST_LOGIN_WELCOME_KEY,
+} from '../constants/storageKeys'
 import { createWorkspaceByControlCode, joinWorkspaceByControlCode } from '../sync/workspaceAcl'
-
-const LAST_EMAIL_KEY = 'planize_last_login_email'
-const LAST_CONTROL_CODE_KEY = 'planize_last_control_code'
 type AuthMode = 'login' | 'register'
 
 function isEmailAlreadyInUse(e: unknown): boolean {
@@ -58,7 +60,6 @@ export default function LoginScreen() {
   const [controlCode, setControlCode] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberEmail, setRememberEmail] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -84,11 +85,10 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const saved = window.localStorage.getItem(LAST_EMAIL_KEY)?.trim()
+    const saved = window.localStorage.getItem(PLANIZE_LAST_LOGIN_EMAIL_KEY)?.trim()
     if (saved) setEmail(saved)
-    const savedCode = window.localStorage.getItem(LAST_CONTROL_CODE_KEY)?.trim()
+    const savedCode = window.localStorage.getItem(PLANIZE_LAST_CONTROL_CODE_KEY)?.trim()
     if (savedCode) setControlCode(savedCode)
-    setRememberEmail(Boolean(saved))
   }, [])
 
   async function createControl(emailNormalized: string) {
@@ -162,12 +162,9 @@ export default function LoginScreen() {
         }
       }
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(LAST_CONTROL_CODE_KEY, controlCode.trim())
-        if (rememberEmail) {
-          window.localStorage.setItem(LAST_EMAIL_KEY, emailNormalized)
-        } else {
-          window.localStorage.removeItem(LAST_EMAIL_KEY)
-        }
+        window.localStorage.setItem(PLANIZE_LAST_CONTROL_CODE_KEY, controlCode.trim())
+        window.localStorage.setItem(PLANIZE_LAST_LOGIN_EMAIL_KEY, emailNormalized)
+        window.sessionStorage.setItem(PLANIZE_POST_LOGIN_WELCOME_KEY, '1')
       }
     } catch (e) {
       setMsg(authErrorMessage(e))
@@ -297,17 +294,9 @@ export default function LoginScreen() {
           </label>
         </div>
 
-        <div className="mt-3 space-y-1.5">
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={rememberEmail}
-              onChange={e => setRememberEmail(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border"
-            />
-            Lembrar meu e-mail neste aparelho
-          </label>
-        </div>
+        <p className="mt-3 text-[11px] leading-snug text-muted">
+          Após entrar com sucesso, o email e o código do controle ficam guardados neste aparelho para a próxima vez.
+        </p>
 
         <div className="mt-4">
           <button

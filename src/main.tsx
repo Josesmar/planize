@@ -1,9 +1,11 @@
-import { StrictMode } from 'react'
+import { StrictMode, useReducer } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { FirebaseAuthProvider, useFirebaseAuth } from './auth/FirebaseAuthProvider'
 import LandingPage from './components/LandingPage'
 import LoginScreen from './components/LoginScreen'
+import PostLoginWelcome from './components/PostLoginWelcome'
+import { PLANIZE_POST_LOGIN_WELCOME_KEY } from './constants/storageKeys'
 import { useStore } from './store'
 import { ThemeSync } from './theme/ThemeSync'
 import { isFirebaseConfigured } from './sync/firebaseApp'
@@ -49,6 +51,7 @@ function RootContent() {
   const syncWorkspaceId = useStore(s => s.syncWorkspaceId)
   const syncWorkspaceMeta = useStore(s => s.syncWorkspaceMeta)
   const { user, loading } = useFirebaseAuth()
+  const [, bumpPostLoginWelcome] = useReducer((n: number) => n + 1, 0)
 
   if (isFirebaseConfigured()) {
     if (loading) {
@@ -71,6 +74,16 @@ function RootContent() {
       syncWorkspaceMeta != null &&
       syncWorkspaceMeta.allowedEmails.map(e => e.toLowerCase()).includes(email)
     if (!isAuthorizedInCurrentControl) return <LoginScreen />
+
+    let showPostLoginWelcome = false
+    try {
+      showPostLoginWelcome = sessionStorage.getItem(PLANIZE_POST_LOGIN_WELCOME_KEY) === '1'
+    } catch {
+      /* ignore */
+    }
+    if (showPostLoginWelcome) {
+      return <PostLoginWelcome onFinish={() => bumpPostLoginWelcome()} />
+    }
   }
 
   return (

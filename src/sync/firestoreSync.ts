@@ -24,9 +24,21 @@ type AppStore = StoreApi<AppState>
 let fireUnsub: (() => void) | undefined
 let storeUnsub: (() => void) | undefined
 let pushTimer: ReturnType<typeof setTimeout> | undefined
+/** True enquanto `pushWorkspaceDoc` corre — evita snapshot antigo a sobrescrever `personLabels` a meio da edição. */
+let pushInFlight = false
 let applyingRemote = false
 let lastComparableJson = ''
 let seedRequested = false
+
+/** Mantém os nomes das colunas locais alinhados ao `incomeSlotCount` remoto (durante debounce / push). */
+function mergeLocalPersonLabels(store: AppStore, remoteUi: AppState['ui']): AppState['ui'] {
+  const loc = store.getState().ui.personLabels
+  const n = remoteUi.incomeSlotCount
+  let merged = [...loc]
+  while (merged.length < n) merged.push(`Pessoa ${merged.length + 1}`)
+  if (merged.length > n) merged = merged.slice(0, n)
+  return { ...remoteUi, personLabels: merged }
+}
 
 function pickSlice(state: AppState) {
   return {
@@ -95,6 +107,8 @@ export function disconnectFirestoreSync() {
   fireUnsub?.()
   storeUnsub?.()
   clearTimeout(pushTimer)
+  pushTimer = undefined
+  pushInFlight = false
   fireUnsub = undefined
   storeUnsub = undefined
   lastComparableJson = ''
@@ -122,24 +136,29 @@ async function pushWorkspaceDoc(ref: DocumentReference, store: AppStore) {
     return
   }
 
-  const db = ref.firestore
-  await runTransaction(db, async tx => {
-    const snap = await tx.get(ref)
-    const prevRev = snap.exists() ? Number((snap.data() as { revision?: unknown }).revision ?? 0) : 0
-    const slice = pickSlice(store.getState())
-    const payload = stripForFirestore({
-      ...slice,
-      ownerEmail: meta.ownerEmail,
-      allowedEmails: meta.allowedEmails,
-      revision: prevRev + 1,
-    } as Record<string, unknown>)
-    tx.set(ref, {
-      ...payload,
-      updatedAt: serverTimestamp(),
+  pushInFlight = true
+  try {
+    const db = ref.firestore
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      const prevRev = snap.exists() ? Number((snap.data() as { revision?: unknown }).revision ?? 0) : 0
+      const slice = pickSlice(store.getState())
+      const payload = stripForFirestore({
+        ...slice,
+        ownerEmail: meta.ownerEmail,
+        allowedEmails: meta.allowedEmails,
+        revision: prevRev + 1,
+      } as Record<string, unknown>)
+      tx.set(ref, {
+        ...payload,
+        updatedAt: serverTimestamp(),
+      })
     })
-  })
-  lastComparableJson = serializeComparable(store.getState())
-  setStatus({ kind: 'synced', at: Date.now() })
+    lastComparableJson = serializeComparable(store.getState())
+    setStatus({ kind: 'synced', at: Date.now() })
+  } finally {
+    pushInFlight = false
+  }
 }
 
 export async function connectFirestoreSync(
@@ -233,14 +252,16 @@ export async function connectFirestoreSync(
       }
 
       applyingRemote = true
-      lastComparableJson = cmp
+      const pendingLocalPush = pushTimer != null || pushInFlight
+      const uiToApply = pendingLocalPush ? mergeLocalPersonLabels(store, slice.ui) : slice.ui
       store.setState({
         months: slice.months,
         currentMonthId: slice.currentMonthId,
-        ui: slice.ui,
+        ui: uiToApply,
         templates: slice.templates,
         syncWorkspaceMeta: acl,
       })
+      lastComparableJson = serializeComparable(store.getState())
       applyingRemote = false
       setStatus({ kind: 'synced', at: Date.now() })
     },
@@ -255,6 +276,7 @@ export async function connectFirestoreSync(
     if (cmp === lastComparableJson) return
     clearTimeout(pushTimer)
     pushTimer = setTimeout(() => {
+      pushTimer = undefined
       void pushWorkspaceDoc(ref, store).catch(e => {
         setStatus({
           kind: 'error',

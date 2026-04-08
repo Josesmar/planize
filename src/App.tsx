@@ -155,7 +155,7 @@ export default function App() {
   return (
     <div className="app-viewport font-sans">
       <RemoteSyncBridge />
-      <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col pb-[max(8.5rem,calc(6.25rem+env(safe-area-inset-bottom)))]">
+      <div className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col">
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b border-border bg-bg/95 px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur sm:px-4">
@@ -444,9 +444,9 @@ export default function App() {
             <section className="rounded-xl border border-border bg-surface p-4">
               <h2 className="text-sm font-semibold text-textMain">Sincronização na nuvem</h2>
               <p className="mt-1 text-xs text-muted leading-relaxed">
-                Todos usam o mesmo serviço na nuvem (não precisa de configurar Firebase no telemóvel). Convites por
-                email: o titular envia, entra pelo link e toca em <strong className="text-textMain">Ativar na nuvem</strong>;
-                os convidados entram pelo link e o titular aprova no aviso no topo.
+                Email, senha e código do controle são pedidos <strong className="text-textMain">no ecrã de entrada</strong>{' '}
+                da app; email e código ficam guardados neste aparelho. Aqui vê a sessão, pode desligar a nuvem ou sair.
+                Convites por link: o titular aprova pedidos no aviso no topo.
               </p>
               <CloudAccessPanel />
               {syncWorkspaceId ? (
@@ -478,8 +478,20 @@ export default function App() {
         )}
       </main>
 
+      {/*
+        Espaçador em fluxo (não só padding): com conteúdo alto + flex-1, padding no pai às vezes não deixa
+        margem por baixo da planilha e a nav fixa tapa inputs (ex.: bloco Renda no mobile).
+      */}
+      <div
+        className="shrink-0 pointer-events-none"
+        style={{
+          height: 'max(7.25rem, calc(5.75rem + env(safe-area-inset-bottom, 0px)))',
+        }}
+        aria-hidden
+      />
+
       {/* ── Nav ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-bg/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-bg/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur">
         <div className="mx-auto flex max-w-3xl justify-around">
           {TAB_CONFIG.map(({ id, label, icon: Icon }) => (
             <button key={id} type="button" onClick={() => setActiveTab(id)}

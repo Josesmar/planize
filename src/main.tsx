@@ -1,6 +1,7 @@
 import { StrictMode, useReducer } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { VersionWatch } from './components/VersionWatch'
 import { FirebaseAuthProvider, useFirebaseAuth } from './auth/FirebaseAuthProvider'
 import LandingPage from './components/LandingPage'
 import LoginScreen from './components/LoginScreen'
@@ -9,8 +10,11 @@ import { PLANIZE_POST_LOGIN_WELCOME_KEY } from './constants/storageKeys'
 import { useStore } from './store'
 import { ThemeSync } from './theme/ThemeSync'
 import { isFirebaseConfigured } from './sync/firebaseApp'
+import { registerPlanizePwa } from './registerPwa'
 import './index.css'
 import { Wallet } from 'lucide-react'
+
+registerPlanizePwa()
 
 /**
  * Opcional: `?planize-clear-cache=1` no URL para desregistar SW e limpar Cache API
@@ -95,6 +99,9 @@ function RootContent() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Root />
+    <>
+      <VersionWatch />
+      <Root />
+    </>
   </StrictMode>
 )

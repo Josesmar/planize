@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 /** Injeta `vite.config.ts` `define` — muda a cada `vite build` / arranque do `vite dev`. */
 declare const __BUILD_STAMP__: string

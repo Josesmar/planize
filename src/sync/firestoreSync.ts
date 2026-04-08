@@ -16,6 +16,7 @@ import {
 } from '../types'
 import { ensureIncomeSlots, migrateLegacyIncome } from '../utils/incomeModel'
 import { coerceUiPreferences } from '../utils/uiPrefs'
+import { readGreetingNameFromDevice } from '../utils/greetingNameStorage'
 import { getFirebaseApp, isFirebaseConfigured } from './firebaseApp'
 import { useSyncUiStore } from './syncUiStore'
 
@@ -38,6 +39,15 @@ function mergeLocalPersonLabels(store: AppStore, remoteUi: AppState['ui']): AppS
   while (merged.length < n) merged.push(`Pessoa ${merged.length + 1}`)
   if (merged.length > n) merged = merged.slice(0, n)
   return { ...remoteUi, personLabels: merged }
+}
+
+/** Evita o snapshot remoto (sem greetingName) apagar o nome já guardado localmente ou em localStorage. */
+function mergeGreetingNameIntoUi(store: AppStore, remoteUi: AppState['ui']): AppState['ui'] {
+  const loc = store.getState().ui.greetingName?.trim() ?? ''
+  const fromLs = readGreetingNameFromDevice()
+  const rem = remoteUi.greetingName?.trim() ?? ''
+  const best = loc || fromLs || rem
+  return { ...remoteUi, greetingName: best }
 }
 
 function pickSlice(state: AppState) {
@@ -253,7 +263,8 @@ export async function connectFirestoreSync(
 
       applyingRemote = true
       const pendingLocalPush = pushTimer != null || pushInFlight
-      const uiToApply = pendingLocalPush ? mergeLocalPersonLabels(store, slice.ui) : slice.ui
+      const baseUi = pendingLocalPush ? mergeLocalPersonLabels(store, slice.ui) : slice.ui
+      const uiToApply = mergeGreetingNameIntoUi(store, baseUi)
       store.setState({
         months: slice.months,
         currentMonthId: slice.currentMonthId,

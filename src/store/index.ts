@@ -17,6 +17,7 @@ import { ensureIncomeSlots, migrateLegacyIncome } from '../utils/incomeModel'
 import { coerceUiPreferences } from '../utils/uiPrefs'
 import { SEED_MONTHS } from '../data/seedMonths'
 import { syncDocumentTheme } from '../theme/syncDocumentTheme'
+import { readGreetingNameFromDevice, writeGreetingNameToDevice } from '../utils/greetingNameStorage'
 
 function inferTag(name: string): ExpenseTag | undefined {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -210,6 +211,9 @@ export const useStore = create<AppState>()(
           const prev = state.ui ?? DEFAULT_UI_PREFERENCES
           const ui = { ...prev, ...partial }
           if (typeof partial.theme !== 'undefined') syncDocumentTheme(partial.theme)
+          if (typeof partial.greetingName !== 'undefined') {
+            writeGreetingNameToDevice(ui.greetingName ?? '')
+          }
           return { ui }
         }),
 
@@ -304,11 +308,18 @@ export const useStore = create<AppState>()(
         if (persistedState == null) return currentState as AppState
         const p = persistedState as Partial<AppState>
         const cur = currentState as AppState
-        const ui = coerceUiPreferences({
+        const uiMerged = coerceUiPreferences({
           ...DEFAULT_UI_PREFERENCES,
           ...cur.ui,
           ...(p.ui ?? {}),
         } as Record<string, unknown>)
+        const fromLs = readGreetingNameFromDevice()
+        const ui =
+          fromLs && !uiMerged.greetingName?.trim()
+            ? { ...uiMerged, greetingName: fromLs }
+            : !uiMerged.greetingName?.trim() && cur.ui?.greetingName?.trim()
+              ? { ...uiMerged, greetingName: cur.ui.greetingName.trim() }
+              : uiMerged
         return {
           ...cur,
           ...p,

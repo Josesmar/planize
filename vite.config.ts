@@ -1,8 +1,26 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const buildStamp = new Date().toISOString().slice(0, 19).replace('T', ' ')
+
+/** Escreve `dist/planize-version.json` para a app em produção detetar deploy novo sem depender só do SW. */
+function planizeVersionFilePlugin() {
+  return {
+    name: 'planize-version-file',
+    writeBundle() {
+      const dir = resolve(process.cwd(), 'dist')
+      try {
+        mkdirSync(dir, { recursive: true })
+      } catch {
+        /* ignore */
+      }
+      writeFileSync(resolve(dir, 'planize-version.json'), JSON.stringify({ build: buildStamp }), 'utf8')
+    },
+  }
+}
 
 export default defineConfig({
   define: {
@@ -10,8 +28,11 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    planizeVersionFilePlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      /** `prompt` + `registerSW` no cliente: ao detetar novo SW chamamos reload (mais fiável que só autoUpdate em iOS/PWA). */
+      registerType: 'prompt',
+      injectRegister: false,
       /**
        * PWA desligado em dev: com `enabled: true` o SW pode servir bundle antigo após
        * alterações no código (ex.: totais da planilha parecem “não atualizar”).

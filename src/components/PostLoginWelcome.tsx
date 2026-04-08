@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Sparkles, Wallet } from 'lucide-react'
 import { PLANIZE_POST_LOGIN_WELCOME_KEY } from '../constants/storageKeys'
 import { useStore } from '../store'
+import { readGreetingNameFromDevice } from '../utils/greetingNameStorage'
 
 type Props = {
   onFinish: () => void
@@ -20,6 +21,17 @@ export default function PostLoginWelcome({ onFinish }: Props) {
   const hasSavedName = useMemo(() => Boolean(savedName.trim()), [savedName])
   const [step, setStep] = useState<'ask' | 'welcome'>(() => (hasSavedName ? 'welcome' : 'ask'))
   const [nameInput, setNameInput] = useState(savedName.trim())
+
+  /** Reidratação / Firestore podem atrasar; localStorage tem o nome de imediato após refresh. */
+  useEffect(() => {
+    const fromLs = readGreetingNameFromDevice()
+    const fromStore = useStore.getState().ui?.greetingName?.trim() ?? ''
+    const effective = fromStore || fromLs
+    if (!effective) return
+    if (!fromStore && fromLs) useStore.getState().updateUi({ greetingName: fromLs })
+    setNameInput(effective)
+    setStep('welcome')
+  }, [])
 
   useEffect(() => {
     if (savedName.trim() && step === 'ask') setStep('welcome')
